@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { supabase } from '../lib/supabase'
 import {
   ChartBarIcon as TrendingUpIcon,
   CurrencyDollarIcon,
@@ -52,13 +53,92 @@ export default function Profit() {
   async function fetchProductProfits() {
     try {
       setLoading(true)
-      const params = new URLSearchParams()
-      if (selectedMonth) params.append('month', selectedMonth)
-      if (selectedYear) params.append('year', selectedYear)
 
-      const response = await fetch(`http://localhost:5000/api/reports/profit?${params}`)
-      const data = await response.json()
-      setProductProfits(data)
+      // Fetch all transactions with product info
+      let query = supabase
+        .from('transactions')
+        .select(`
+          *,
+          product:products (*)
+        `)
+
+      // Filter by month/year if provided
+      if (selectedMonth || selectedYear) {
+        const startDate = new Date()
+        const endDate = new Date()
+
+        if (selectedMonth && selectedYear) {
+          // Both month and year selected
+          startDate.setFullYear(parseInt(selectedYear), parseInt(selectedMonth) - 1, 1)
+          startDate.setHours(0, 0, 0, 0)
+          endDate.setFullYear(parseInt(selectedYear), parseInt(selectedMonth), 0)
+          endDate.setHours(23, 59, 59, 999)
+        } else if (selectedYear) {
+          // Only year selected
+          startDate.setFullYear(parseInt(selectedYear), 0, 1)
+          startDate.setHours(0, 0, 0, 0)
+          endDate.setFullYear(parseInt(selectedYear), 11, 31)
+          endDate.setHours(23, 59, 59, 999)
+        }
+
+        query = query.gte('created_at', startDate.toISOString()).lte('created_at', endDate.toISOString())
+      }
+
+      const { data: transactions, error } = await query
+
+      if (error) throw error
+
+      // Group by product and calculate profit
+      const productProfitMap = new Map<string, {
+        product_id: string
+        product_name: string
+        category: string
+        revenue: number
+        cost: number
+        units_sold: number
+        transactions: number
+      }>()
+
+      transactions?.forEach((transaction) => {
+        const productId = transaction.product_id
+        const productName = transaction.product?.name || 'Unknown Product'
+        const category = transaction.product?.category || 'Uncategorized'
+
+        if (!productProfitMap.has(productId)) {
+          productProfitMap.set(productId, {
+            product_id: productId,
+            product_name: productName,
+            category,
+            revenue: 0,
+            cost: 0,
+            units_sold: 0,
+            transactions: 0
+          })
+        }
+
+        const productData = productProfitMap.get(productId)!
+
+        if (transaction.type === 'OUT' || transaction.type === 'SALE' || transaction.type === 'ADJUSTMENT') {
+          productData.revenue += transaction.total_revenue || 0
+          productData.cost += transaction.total_cost || 0
+          productData.units_sold += transaction.quantity
+          productData.transactions += 1
+        }
+      })
+
+      const profitData: ProductProfit[] = Array.from(productProfitMap.values()).map(product => ({
+        product_id: product.product_id,
+        product_name: product.product_name,
+        category: product.category,
+        total_revenue: product.revenue,
+        total_cost: product.cost,
+        gross_profit: product.revenue - product.cost,
+        profit_margin: product.revenue > 0 ? ((product.revenue - product.cost) / product.revenue) * 100 : 0,
+        units_sold: product.units_sold,
+        transactions_count: product.transactions
+      })).sort((a, b) => b.gross_profit - a.gross_profit)
+
+      setProductProfits(profitData)
     } catch (error) {
       console.error('Error fetching product profits:', error)
     } finally {
