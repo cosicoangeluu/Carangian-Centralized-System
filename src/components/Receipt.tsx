@@ -40,9 +40,9 @@ export default function Receipt({
         {/* Header */}
         <div className="receipt-header text-center py-6 px-4 border-b-2 border-dashed border-border-medium">
           <h1 className="company-name font-orbitron text-2xl font-bold text-text-primary mb-1">
-            INVENTORY TRACKER
+            Carangian Variety Store
           </h1>
-          <p className="text-xs text-text-muted font-rajdhani">COGS & Stock Management System</p>
+          <p className="text-xs text-text-muted font-rajdhani">San Jose, Northern Samar | 09985464005</p>
           <div className="mt-3">
             <span className={`inline-block px-4 py-1.5 rounded-lg text-xs font-bold font-rajdhani text-white ${getTypeBadgeColor()}`}>
               {type} RECEIPT

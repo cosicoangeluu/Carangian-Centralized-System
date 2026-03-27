@@ -8,11 +8,10 @@ import {
   TrashIcon,
   XMarkIcon,
   CheckCircleIcon,
-  PrinterIcon,
   ArrowDownTrayIcon
 } from '@heroicons/react/24/outline'
 import Receipt from '../components/Receipt'
-import { generateTransactionNumber, formatReceiptDate, printReceipt, downloadReceiptAsPDF } from '../utils/receiptUtils'
+import { generateTransactionNumber, formatReceiptDate, downloadReceiptAsPDF, downloadReceiptAsImage } from '../utils/receiptUtils'
 import POSLayout from '../components/POSLayout'
 import ProductQuantityModal from '../components/ProductQuantityModal'
 
@@ -476,18 +475,18 @@ export default function POS() {
                   {/* Action Buttons */}
                   <div className="px-6 py-5 border-t border-border-light bg-bg-tertiary flex gap-3">
                     <button
-                      onClick={() => printReceipt(`receipt-${receiptData.id}`)}
-                      className="btn-primary flex-1 px-4 py-3 rounded-xl flex items-center justify-center gap-2 font-rajdhani font-semibold"
-                    >
-                      <PrinterIcon className="h-5 w-5" />
-                      Print
-                    </button>
-                    <button
                       onClick={() => downloadReceiptAsPDF(`receipt-${receiptData.id}`, receiptData.transactionNumber)}
                       className="btn-secondary flex-1 px-4 py-3 rounded-xl flex items-center justify-center gap-2 font-rajdhani font-semibold"
                     >
                       <ArrowDownTrayIcon className="h-5 w-5" />
-                      Download PDF
+                      PDF
+                    </button>
+                    <button
+                      onClick={() => downloadReceiptAsImage(`receipt-${receiptData.id}`, receiptData.transactionNumber)}
+                      className="btn-secondary flex-1 px-4 py-3 rounded-xl flex items-center justify-center gap-2 font-rajdhani font-semibold"
+                    >
+                      <ArrowDownTrayIcon className="h-5 w-5" />
+                      Image
                     </button>
                     <button
                       onClick={() => setShowReceipt(false)}

@@ -20,11 +20,6 @@ export default function ProductQuantityModal({
 
   if (!isOpen || !product) return null
 
-  const costPerPiece = product.cost / (product.units_per_pack || 1)
-  const profitPerPiece = (product.retail_price || 0) - costPerPiece
-
-  const profitPerPack = product.selling_price - product.cost
-
   const handleModeSelect = (mode: 'retail' | 'wholesale') => {
     setSelectedMode(mode)
     setQuantity(1)
