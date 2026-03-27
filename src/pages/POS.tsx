@@ -2,12 +2,8 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { Product, CartItem, ReceiptData } from '../types'
-import { useAuth } from '../contexts/AuthContext'
 import {
-  ArrowUpIcon,
-  ArrowDownIcon,
   CubeIcon,
-  ArrowsRightLeftIcon,
   ShoppingCartIcon,
   TrashIcon,
   XMarkIcon,
@@ -18,26 +14,22 @@ import {
 import Receipt from '../components/Receipt'
 import { generateTransactionNumber, formatReceiptDate, printReceipt, downloadReceiptAsPDF } from '../utils/receiptUtils'
 import POSLayout from '../components/POSLayout'
-import TransactionSelectionModal from '../components/TransactionSelectionModal'
 import ProductQuantityModal from '../components/ProductQuantityModal'
 
-type TransactionType = 'SALE' | 'RESTOCK' | 'RETURN' | 'ADJUSTMENT'
+const TRANSACTION_TYPE = 'SALE' as const
 
 export default function POS() {
   const navigate = useNavigate()
-  const { user } = useAuth()
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
 
   // POS State
-  const [transactionType, setTransactionType] = useState<TransactionType | null>(null)
   const [cart, setCart] = useState<CartItem[]>([])
   const [customerName, setCustomerName] = useState('')
   const [notes, setNotes] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
 
   // Modal State
-  const [showTransactionModal, setShowTransactionModal] = useState(true)
   const [showReceipt, setShowReceipt] = useState(false)
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null)
   const [showQuantityModal, setShowQuantityModal] = useState(false)
@@ -61,18 +53,6 @@ export default function POS() {
     } finally {
       setLoading(false)
     }
-  }
-
-  function handleSelectTransactionType(type: TransactionType) {
-    setTransactionType(type)
-    setShowTransactionModal(false)
-  }
-
-  function handleCloseTransactionModal() {
-    // Don't allow closing if there are items in cart
-    if (cart.length > 0) return
-    // Navigate back or stay on page
-    navigate('/')
   }
 
   // POS Functions
@@ -133,21 +113,11 @@ export default function POS() {
   function clearCart() {
     setCart([])
     setNotes('')
-    setTransactionType(null)
-    setShowTransactionModal(true)
-  }
-
-  function changeTransactionType() {
-    if (cart.length > 0) {
-      if (!confirm('Changing transaction type will clear the cart. Continue?')) return
-    }
-    setTransactionType(null)
-    setShowTransactionModal(true)
+    setCustomerName('')
   }
 
   async function processTransaction() {
     if (cart.length === 0) return
-    if (!transactionType) return
 
     const transactionNumber = generateTransactionNumber()
     const now = new Date()
@@ -155,42 +125,35 @@ export default function POS() {
     try {
       // Process each item in cart
       for (const item of cart) {
-        const isOut = transactionType === 'SALE' || transactionType === 'ADJUSTMENT'
-        
         // Calculate quantity in base units (pieces)
         // If retail: quantity is already in pieces
         // If wholesale: quantity is in packs, convert to pieces
-        const quantityInBaseUnits = item.is_retail 
-          ? item.quantity 
+        const quantityInBaseUnits = item.is_retail
+          ? item.quantity
           : item.quantity * (item.product.units_per_pack || 1)
-        
+
         // Calculate cost per piece
         const costPerPiece = item.product.cost / (item.product.units_per_pack || 1)
         const totalCost = quantityInBaseUnits * costPerPiece
-        
-        const sellingPrice = isOut ? item.selling_price : null
-        const totalRevenue = isOut ? item.subtotal : null
 
         const { error: transactionError } = await supabase
           .from('transactions')
           .insert([{
             product_id: item.product.id,
-            type: isOut ? 'OUT' : 'IN',
+            type: 'OUT',
             quantity: quantityInBaseUnits,
             unit_cost: costPerPiece,
             total_cost: totalCost,
-            selling_price: sellingPrice,
-            total_revenue: totalRevenue,
-            notes: customerName ? `${customerName} - ${notes || `${transactionType} - ${transactionNumber}`}` : notes || `${transactionType} - ${transactionNumber}`,
+            selling_price: item.selling_price,
+            total_revenue: item.subtotal,
+            notes: customerName ? `${customerName} - ${notes || `${TRANSACTION_TYPE} - ${transactionNumber}`}` : notes || `${TRANSACTION_TYPE} - ${transactionNumber}`,
             created_at: now.toISOString()
           }])
 
         if (transactionError) throw transactionError
 
         // Update product quantity (quantity is stored in base units/pieces)
-        const newQuantity = isOut
-          ? item.product.quantity - quantityInBaseUnits
-          : item.product.quantity + quantityInBaseUnits
+        const newQuantity = item.product.quantity - quantityInBaseUnits
 
         const { error: updateError } = await supabase
           .from('products')
@@ -203,12 +166,12 @@ export default function POS() {
         if (updateError) throw updateError
       }
 
-      // Generate receipt data - use actual transactionType
+      // Generate receipt data
       const receipt: ReceiptData = {
         id: Date.now().toString(),
         transactionNumber,
         date: formatReceiptDate(now),
-        type: transactionType,
+        type: TRANSACTION_TYPE,
         customerName: customerName || undefined,
         items: cart.map(item => ({
           name: item.product.name,
@@ -239,32 +202,6 @@ export default function POS() {
     p.name.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
-  const getTypeBadgeStyles = (type: TransactionType) => {
-    switch (type) {
-      case 'SALE':
-        return 'bg-gradient-to-r from-green-500 to-emerald-500 text-white'
-      case 'RESTOCK':
-        return 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white'
-      case 'RETURN':
-        return 'bg-gradient-to-r from-orange-500 to-red-500 text-white'
-      case 'ADJUSTMENT':
-        return 'bg-gradient-to-r from-purple-500 to-pink-500 text-white'
-    }
-  }
-
-  const getTypeIcon = (type: TransactionType) => {
-    switch (type) {
-      case 'SALE':
-        return <ArrowDownIcon className="h-4 w-4" />
-      case 'RESTOCK':
-        return <ArrowUpIcon className="h-4 w-4" />
-      case 'RETURN':
-        return <ArrowsRightLeftIcon className="h-4 w-4" />
-      case 'ADJUSTMENT':
-        return <CubeIcon className="h-4 w-4" />
-    }
-  }
-
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -288,22 +225,8 @@ export default function POS() {
             <h1 className="text-2xl font-bold font-orbitron text-text-primary flex items-center gap-3">
               <span className="gradient-text">POINT OF SALE</span>
             </h1>
-            <p className="text-text-secondary mt-1 font-rajdhani text-base">Process transactions and generate receipts</p>
+            <p className="text-text-secondary mt-1 font-rajdhani text-base">Process customer purchases and generate receipts</p>
           </div>
-          
-          {/* Current Transaction Type Badge */}
-          {transactionType && (
-            <button
-              onClick={changeTransactionType}
-              className="flex items-center gap-2 self-start sm:self-center"
-            >
-              <div className={`px-4 py-2 rounded-xl font-rajdhani font-bold uppercase flex items-center gap-2 ${getTypeBadgeStyles(transactionType)}`}>
-                {getTypeIcon(transactionType)}
-                <span>{transactionType}</span>
-              </div>
-              <span className="text-xs text-text-muted font-rajdhani">(Change)</span>
-            </button>
-          )}
         </div>
 
         {/* POS Interface */}
@@ -387,7 +310,6 @@ export default function POS() {
                   <button
                     onClick={() => {
                       clearCart()
-                      setShowTransactionModal(true)
                     }}
                     className="text-red-500 hover:text-red-600 p-2 rounded-lg hover:bg-red-50 transition-colors"
                     title="Clear cart"
@@ -403,7 +325,7 @@ export default function POS() {
                   <div className="text-center py-8">
                     <ShoppingCartIcon className="h-12 w-12 text-text-muted mx-auto mb-3" />
                     <p className="text-text-secondary font-rajdhani">Cart is empty</p>
-                    <p className="text-sm text-text-muted font-rajdhani mt-1">Select a transaction type to start</p>
+                    <p className="text-sm text-text-muted font-rajdhani mt-1">Select products to add to cart</p>
                   </div>
                 ) : (
                   cart.map((item) => (
@@ -504,14 +426,6 @@ export default function POS() {
             </div>
           </div>
         </div>
-
-        {/* Transaction Selection Modal */}
-        <TransactionSelectionModal
-          isOpen={showTransactionModal}
-          onClose={handleCloseTransactionModal}
-          onSelectType={handleSelectTransactionType}
-          userRole={user?.role || 'customer'}
-        />
 
         {/* Product Quantity Modal */}
         <ProductQuantityModal
