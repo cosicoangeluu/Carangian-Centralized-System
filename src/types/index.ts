@@ -11,6 +11,11 @@ export interface Product {
   is_retailable: boolean;
   units_per_pack: number;
   retail_price: number | null;
+  // Size variant fields (Small, Medium, Large)
+  has_size_variants: boolean;
+  size_small_price: number | null;
+  size_medium_price: number | null;
+  size_large_price: number | null;
 }
 
 export interface Transaction {
@@ -40,6 +45,7 @@ export interface CartItem {
   selling_price: number;
   subtotal: number;
   is_retail: boolean;  // true = sold by piece, false = sold by pack
+  size?: 'small' | 'medium' | 'large';  // for size variant products
 }
 
 export interface ReceiptData {

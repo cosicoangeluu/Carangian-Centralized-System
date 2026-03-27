@@ -17,7 +17,11 @@ export default function Inventory() {
     cost: 0,
     is_retailable: false,
     units_per_pack: 1,
-    retail_price: 0
+    retail_price: 0,
+    has_size_variants: false,
+    size_small_price: 0,
+    size_medium_price: 0,
+    size_large_price: 0
   })
   const [showNewCategoryInput, setShowNewCategoryInput] = useState(false)
   const [newCategoryName, setNewCategoryName] = useState('')
@@ -104,7 +108,7 @@ export default function Inventory() {
 
       setShowModal(false)
       setEditingProduct(null)
-      setFormData({ name: '', category: '', quantity: 0, selling_price: 0, cost: 0, is_retailable: false, units_per_pack: 1, retail_price: 0 })
+      setFormData({ name: '', category: '', quantity: 0, selling_price: 0, cost: 0, is_retailable: false, units_per_pack: 1, retail_price: 0, has_size_variants: false, size_small_price: 0, size_medium_price: 0, size_large_price: 0 })
       setShowNewCategoryInput(false)
       setNewCategoryName('')
       fetchProducts()
@@ -164,7 +168,11 @@ export default function Inventory() {
       cost: product.cost || 0,
       is_retailable: product.is_retailable || false,
       units_per_pack: product.units_per_pack || 1,
-      retail_price: product.retail_price || 0
+      retail_price: product.retail_price || 0,
+      has_size_variants: product.has_size_variants || false,
+      size_small_price: product.size_small_price || 0,
+      size_medium_price: product.size_medium_price || 0,
+      size_large_price: product.size_large_price || 0
     })
     setShowNewCategoryInput(false)
     setNewCategoryName('')
@@ -545,6 +553,72 @@ export default function Inventory() {
                             onChange={(e) => setFormData({ ...formData, retail_price: parseFloat(e.target.value) || 0 })}
                             className="input-field w-full px-4 py-3 rounded-xl text-green-600 font-semibold"
                             placeholder="e.g., 15.00"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Size Variants Section */}
+                  <div className="border-t border-border-light pt-4">
+                    <div className="flex items-center gap-2 mb-4">
+                      <input
+                        type="checkbox"
+                        id="has_size_variants"
+                        checked={formData.has_size_variants}
+                        onChange={(e) => setFormData({ ...formData, has_size_variants: e.target.checked, is_retailable: false })}
+                        className="w-4 h-4 text-neon-blue border-border-light rounded focus:ring-neon-blue"
+                      />
+                      <label htmlFor="has_size_variants" className="text-sm font-rajdhani font-semibold text-text-primary">
+                        Enable Size Variants (Small, Medium, Large)
+                      </label>
+                    </div>
+
+                    {formData.has_size_variants && (
+                      <div className="grid grid-cols-3 gap-4">
+                        <div>
+                          <label className="block text-xs font-rajdhani font-semibold text-text-secondary uppercase mb-2">
+                            Small Price (₱)
+                          </label>
+                          <input
+                            type="number"
+                            required
+                            min="0"
+                            step="0.01"
+                            value={formData.size_small_price}
+                            onChange={(e) => setFormData({ ...formData, size_small_price: parseFloat(e.target.value) || 0 })}
+                            className="input-field w-full px-4 py-3 rounded-xl text-green-600 font-semibold"
+                            placeholder="e.g., 25.00"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-rajdhani font-semibold text-text-secondary uppercase mb-2">
+                            Medium Price (₱)
+                          </label>
+                          <input
+                            type="number"
+                            required
+                            min="0"
+                            step="0.01"
+                            value={formData.size_medium_price}
+                            onChange={(e) => setFormData({ ...formData, size_medium_price: parseFloat(e.target.value) || 0 })}
+                            className="input-field w-full px-4 py-3 rounded-xl text-green-600 font-semibold"
+                            placeholder="e.g., 35.00"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-rajdhani font-semibold text-text-secondary uppercase mb-2">
+                            Large Price (₱)
+                          </label>
+                          <input
+                            type="number"
+                            required
+                            min="0"
+                            step="0.01"
+                            value={formData.size_large_price}
+                            onChange={(e) => setFormData({ ...formData, size_large_price: parseFloat(e.target.value) || 0 })}
+                            className="input-field w-full px-4 py-3 rounded-xl text-green-600 font-semibold"
+                            placeholder="e.g., 45.00"
                           />
                         </div>
                       </div>

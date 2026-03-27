@@ -60,34 +60,41 @@ export default function POS() {
     setShowQuantityModal(true)
   }
 
-  function handleQuantityConfirm(quantity: number, isRetail: boolean, price: number) {
+  function handleQuantityConfirm(quantity: number, isRetail: boolean, price: number, size?: 'small' | 'medium' | 'large') {
     if (!selectedProduct) return
-    
-    addToCart(selectedProduct, quantity, isRetail, price)
+
+    addToCart(selectedProduct, quantity, isRetail, price, size)
     setShowQuantityModal(false)
     setSelectedProduct(null)
   }
 
-  function addToCart(product: Product, quantity: number, isRetail: boolean, sellingPrice: number) {
-    const existingItem = cart.find(item => item.product.id === product.id)
+  function addToCart(product: Product, quantity: number, isRetail: boolean, sellingPrice: number, size?: 'small' | 'medium' | 'large') {
+    // For size variants, use product.id + size as the unique key
+    const cartKey = size ? `${product.id}-${size}` : product.id
+    const existingItem = cart.find(item => {
+      const itemKey = item.size ? `${item.product.id}-${item.size}` : item.product.id
+      return itemKey === cartKey
+    })
 
     if (existingItem) {
-      setCart(cart.map(item =>
-        item.product.id === product.id
+      setCart(cart.map(item => {
+        const itemKey = item.size ? `${item.product.id}-${item.size}` : item.product.id
+        return itemKey === cartKey
           ? {
               ...item,
               quantity: item.quantity + quantity,
               subtotal: (item.quantity + quantity) * item.selling_price
             }
           : item
-      ))
+      }))
     } else {
       setCart([...cart, {
         product,
         quantity,
         selling_price: sellingPrice,
         subtotal: quantity * sellingPrice,
-        is_retail: isRetail
+        is_retail: isRetail,
+        size
       }])
     }
   }

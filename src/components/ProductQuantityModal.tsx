@@ -5,7 +5,7 @@ import { XMarkIcon, CubeIcon, MinusIcon, PlusIcon } from '@heroicons/react/24/ou
 interface ProductQuantityModalProps {
   isOpen: boolean
   onClose: () => void
-  onConfirm: (quantity: number, isRetail: boolean, price: number) => void
+  onConfirm: (quantity: number, isRetail: boolean, price: number, size?: 'small' | 'medium' | 'large') => void
   product: Product | null
 }
 
@@ -15,27 +15,53 @@ export default function ProductQuantityModal({
   onConfirm,
   product
 }: ProductQuantityModalProps) {
-  const [selectedMode, setSelectedMode] = useState<'retail' | 'wholesale' | null>(null)
+  const [selectedMode, setSelectedMode] = useState<'retail' | 'wholesale' | 'small' | 'medium' | 'large' | null>(null)
   const [quantity, setQuantity] = useState(1)
 
   if (!isOpen || !product) return null
 
-  const handleModeSelect = (mode: 'retail' | 'wholesale') => {
+  const isSizeVariant = product.has_size_variants
+
+  const handleModeSelect = (mode: 'retail' | 'wholesale' | 'small' | 'medium' | 'large') => {
     setSelectedMode(mode)
     setQuantity(1)
   }
 
   const handleConfirm = () => {
     if (!selectedMode) return
-    
-    const isRetail = selectedMode === 'retail'
-    const price = isRetail ? (product.retail_price || 0) : product.selling_price
-    onConfirm(quantity, isRetail, price)
+
+    if (isSizeVariant) {
+      const size = selectedMode as 'small' | 'medium' | 'large'
+      let price = 0
+      if (size === 'small') price = product.size_small_price || 0
+      else if (size === 'medium') price = product.size_medium_price || 0
+      else if (size === 'large') price = product.size_large_price || 0
+      onConfirm(quantity, false, price, size)
+    } else {
+      const isRetail = selectedMode === 'retail'
+      const price = isRetail ? (product.retail_price || 0) : product.selling_price
+      onConfirm(quantity, isRetail, price, undefined)
+    }
   }
 
   const maxQuantity = selectedMode === 'retail'
     ? product.quantity
-    : Math.floor(product.quantity / (product.units_per_pack || 1))
+    : selectedMode === 'wholesale'
+      ? Math.floor(product.quantity / (product.units_per_pack || 1))
+      : product.quantity
+
+  const getPriceForSize = (size: 'small' | 'medium' | 'large') => {
+    if (size === 'small') return product.size_small_price || 0
+    if (size === 'medium') return product.size_medium_price || 0
+    return product.size_large_price || 0
+  }
+
+  const getSizeLabel = (mode: string) => {
+    if (mode === 'small') return 'Small'
+    if (mode === 'medium') return 'Medium'
+    if (mode === 'large') return 'Large'
+    return mode
+  }
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
@@ -52,6 +78,9 @@ export default function ProductQuantityModal({
                 </div>
                 <div>
                   <h3 className="text-xl font-bold font-orbitron text-text-primary">{product.name}</h3>
+                  {isSizeVariant && (
+                    <p className="text-xs text-text-muted font-rajdhani">Select size</p>
+                  )}
                 </div>
               </div>
               <button
@@ -64,66 +93,125 @@ export default function ProductQuantityModal({
 
             {/* Content */}
             <div className="p-6 space-y-4">
-              {/* Sale Mode Selection */}
-              <div className="grid grid-cols-2 gap-4">
-                {/* Wholesale Option */}
-                <button
-                  onClick={() => handleModeSelect('wholesale')}
-                  className={`p-4 rounded-xl border-2 hover:border-neon-blue hover:shadow-medium transition-all bg-bg-tertiary text-left group ${
-                    selectedMode === 'wholesale' ? 'border-neon-blue ring-2 ring-neon-blue/20' : 'border-border-light'
-                  }`}
-                >
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
-                      <CubeIcon className="h-4 w-4 text-white" />
+              {/* Size Variant Options */}
+              {isSizeVariant ? (
+                <div className="grid grid-cols-3 gap-3">
+                  {/* Small */}
+                  <button
+                    onClick={() => handleModeSelect('small')}
+                    className={`p-4 rounded-xl border-2 hover:border-neon-blue hover:shadow-medium transition-all bg-bg-tertiary text-center group ${
+                      selectedMode === 'small' ? 'border-neon-blue ring-2 ring-neon-blue/20' : 'border-border-light'
+                    }`}
+                  >
+                    <div className="w-10 h-10 mx-auto mb-2 rounded-lg bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center">
+                      <span className="text-white font-bold font-orbitron text-sm">S</span>
                     </div>
                     <span className="font-bold font-orbitron text-text-primary group-hover:text-neon-blue transition-colors">
-                      Wholesale
+                      Small
                     </span>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-2xl font-bold font-orbitron text-green-600">₱{product.selling_price.toFixed(2)}</p>
-                    <p className="text-xs text-text-muted font-rajdhani">per pack</p>
-                  </div>
-                </button>
+                    <p className="text-lg font-bold font-orbitron text-green-600 mt-1">
+                      ₱{getPriceForSize('small').toFixed(2)}
+                    </p>
+                  </button>
 
-                {/* Retail Option */}
-                {product.is_retailable && product.retail_price ? (
+                  {/* Medium */}
                   <button
-                    onClick={() => handleModeSelect('retail')}
+                    onClick={() => handleModeSelect('medium')}
+                    className={`p-4 rounded-xl border-2 hover:border-neon-blue hover:shadow-medium transition-all bg-bg-tertiary text-center group ${
+                      selectedMode === 'medium' ? 'border-neon-blue ring-2 ring-neon-blue/20' : 'border-border-light'
+                    }`}
+                  >
+                    <div className="w-10 h-10 mx-auto mb-2 rounded-lg bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center">
+                      <span className="text-white font-bold font-orbitron text-sm">M</span>
+                    </div>
+                    <span className="font-bold font-orbitron text-text-primary group-hover:text-neon-blue transition-colors">
+                      Medium
+                    </span>
+                    <p className="text-lg font-bold font-orbitron text-green-600 mt-1">
+                      ₱{getPriceForSize('medium').toFixed(2)}
+                    </p>
+                  </button>
+
+                  {/* Large */}
+                  <button
+                    onClick={() => handleModeSelect('large')}
+                    className={`p-4 rounded-xl border-2 hover:border-neon-blue hover:shadow-medium transition-all bg-bg-tertiary text-center group ${
+                      selectedMode === 'large' ? 'border-neon-blue ring-2 ring-neon-blue/20' : 'border-border-light'
+                    }`}
+                  >
+                    <div className="w-10 h-10 mx-auto mb-2 rounded-lg bg-gradient-to-br from-red-400 to-pink-500 flex items-center justify-center">
+                      <span className="text-white font-bold font-orbitron text-sm">L</span>
+                    </div>
+                    <span className="font-bold font-orbitron text-text-primary group-hover:text-neon-blue transition-colors">
+                      Large
+                    </span>
+                    <p className="text-lg font-bold font-orbitron text-green-600 mt-1">
+                      ₱{getPriceForSize('large').toFixed(2)}
+                    </p>
+                  </button>
+                </div>
+              ) : (
+                /* Wholesale/Retail Options (existing behavior) */
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Wholesale Option */}
+                  <button
+                    onClick={() => handleModeSelect('wholesale')}
                     className={`p-4 rounded-xl border-2 hover:border-neon-blue hover:shadow-medium transition-all bg-bg-tertiary text-left group ${
-                      selectedMode === 'retail' ? 'border-neon-blue ring-2 ring-neon-blue/20' : 'border-border-light'
+                      selectedMode === 'wholesale' ? 'border-neon-blue ring-2 ring-neon-blue/20' : 'border-border-light'
                     }`}
                   >
                     <div className="flex items-center gap-2 mb-2">
-                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-yellow-500 flex items-center justify-center">
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
                         <CubeIcon className="h-4 w-4 text-white" />
                       </div>
                       <span className="font-bold font-orbitron text-text-primary group-hover:text-neon-blue transition-colors">
-                        Retail
+                        Wholesale
                       </span>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-2xl font-bold font-orbitron text-green-600">₱{product.retail_price.toFixed(2)}</p>
-                      <p className="text-xs text-text-muted font-rajdhani">per piece</p>
+                      <p className="text-2xl font-bold font-orbitron text-green-600">₱{product.selling_price.toFixed(2)}</p>
+                      <p className="text-xs text-text-muted font-rajdhani">per pack</p>
                     </div>
                   </button>
-                ) : (
-                  <div className="p-4 rounded-xl border-2 border-dashed border-border-light bg-bg-secondary flex items-center justify-center">
-                    <p className="text-sm text-text-muted font-rajdhani">Retail not enabled</p>
-                  </div>
-                )}
-              </div>
+
+                  {/* Retail Option */}
+                  {product.is_retailable && product.retail_price ? (
+                    <button
+                      onClick={() => handleModeSelect('retail')}
+                      className={`p-4 rounded-xl border-2 hover:border-neon-blue hover:shadow-medium transition-all bg-bg-tertiary text-left group ${
+                        selectedMode === 'retail' ? 'border-neon-blue ring-2 ring-neon-blue/20' : 'border-border-light'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-yellow-500 flex items-center justify-center">
+                          <CubeIcon className="h-4 w-4 text-white" />
+                        </div>
+                        <span className="font-bold font-orbitron text-text-primary group-hover:text-neon-blue transition-colors">
+                          Retail
+                        </span>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-2xl font-bold font-orbitron text-green-600">₱{product.retail_price.toFixed(2)}</p>
+                        <p className="text-xs text-text-muted font-rajdhani">per piece</p>
+                      </div>
+                    </button>
+                  ) : (
+                    <div className="p-4 rounded-xl border-2 border-dashed border-border-light bg-bg-secondary flex items-center justify-center">
+                      <p className="text-sm text-text-muted font-rajdhani">Retail not enabled</p>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Quantity Selector */}
               {selectedMode && (
                 <div className="rounded-xl bg-bg-tertiary border border-border-light p-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <label className="text-sm font-rajdhani font-semibold text-text-secondary uppercase">
-                      Quantity ({selectedMode === 'retail' ? 'pieces' : 'packs'})
+                      Quantity {isSizeVariant ? '' : (selectedMode === 'retail' ? '(pieces)' : '(packs)')}
                     </label>
                     <span className="text-xs text-text-muted font-rajdhani">
-                      Max: {maxQuantity} {selectedMode === 'retail' ? 'pcs' : 'packs'}
+                      Max: {maxQuantity} {isSizeVariant ? 'pcs' : (selectedMode === 'retail' ? 'pcs' : 'packs')}
                     </span>
                   </div>
                   <div className="flex items-center gap-3">
@@ -154,7 +242,10 @@ export default function ProductQuantityModal({
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-text-muted font-rajdhani">Total:</span>
                       <span className="text-2xl font-bold font-orbitron text-neon-blue">
-                        ₱{((selectedMode === 'retail' ? (product.retail_price || 0) : product.selling_price) * quantity).toFixed(2)}
+                        ₱{((isSizeVariant 
+                          ? getPriceForSize(selectedMode as 'small' | 'medium' | 'large')
+                          : (selectedMode === 'retail' ? (product.retail_price || 0) : product.selling_price)
+                        ) * quantity).toFixed(2)}
                       </span>
                     </div>
                   </div>
