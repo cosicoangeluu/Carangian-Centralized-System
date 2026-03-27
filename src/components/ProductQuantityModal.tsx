@@ -22,14 +22,8 @@ export default function ProductQuantityModal({
 
   const costPerPiece = product.cost / (product.units_per_pack || 1)
   const profitPerPiece = (product.retail_price || 0) - costPerPiece
-  const profitMarginPerPiece = product.retail_price && product.retail_price > 0
-    ? ((profitPerPiece / product.retail_price) * 100).toFixed(1)
-    : 0
 
   const profitPerPack = product.selling_price - product.cost
-  const profitMarginPerPack = product.selling_price > 0
-    ? ((profitPerPack / product.selling_price) * 100).toFixed(1)
-    : 0
 
   const handleModeSelect = (mode: 'retail' | 'wholesale') => {
     setSelectedMode(mode)
