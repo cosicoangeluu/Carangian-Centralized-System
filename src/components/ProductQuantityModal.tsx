@@ -63,9 +63,6 @@ export default function ProductQuantityModal({
                 </div>
                 <div>
                   <h3 className="text-xl font-bold font-orbitron text-text-primary">{product.name}</h3>
-                  <p className="text-sm text-text-muted font-rajdhani">
-                    Stock: {product.quantity} pcs ({(product.quantity / (product.units_per_pack || 1)).toFixed(2)} packs)
-                  </p>
                 </div>
               </div>
               <button
@@ -98,11 +95,6 @@ export default function ProductQuantityModal({
                   <div className="space-y-1">
                     <p className="text-2xl font-bold font-orbitron text-green-600">₱{product.selling_price.toFixed(2)}</p>
                     <p className="text-xs text-text-muted font-rajdhani">per pack</p>
-                    <div className="pt-2 border-t border-border-light mt-1">
-                      <p className="text-xs text-text-muted font-rajdhani">
-                        Profit: ₱{profitPerPack.toFixed(2)} ({profitMarginPerPack}%)
-                      </p>
-                    </div>
                   </div>
                 </button>
 
@@ -125,11 +117,6 @@ export default function ProductQuantityModal({
                     <div className="space-y-1">
                       <p className="text-2xl font-bold font-orbitron text-green-600">₱{product.retail_price.toFixed(2)}</p>
                       <p className="text-xs text-text-muted font-rajdhani">per piece</p>
-                      <div className="pt-2 border-t border-border-light mt-1">
-                        <p className="text-xs text-text-muted font-rajdhani">
-                          Profit: ₱{profitPerPiece.toFixed(2)} ({profitMarginPerPiece}%)
-                        </p>
-                      </div>
                     </div>
                   </button>
                 ) : (
