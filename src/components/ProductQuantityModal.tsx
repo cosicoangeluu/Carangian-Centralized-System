@@ -44,11 +44,15 @@ export default function ProductQuantityModal({
     }
   }
 
-  const maxQuantity = selectedMode === 'retail'
-    ? product.quantity
-    : selectedMode === 'wholesale'
-      ? Math.floor(product.quantity / (product.units_per_pack || 1))
-      : product.quantity
+  const maxQuantity = !product.track_inventory
+    ? 9999 // Unlimited for non-inventory products
+    : selectedMode === 'retail'
+      ? product.quantity
+      : selectedMode === 'wholesale'
+        ? Math.floor(product.quantity / (product.units_per_pack || 1))
+        : product.quantity
+
+  const showMaxQuantity = product.track_inventory
 
   const getPriceForSize = (size: 'small' | 'medium' | 'large') => {
     if (size === 'small') return product.size_small_price || 0
@@ -211,7 +215,11 @@ export default function ProductQuantityModal({
                       Quantity {isSizeVariant ? '' : (selectedMode === 'retail' ? '(pieces)' : '(packs)')}
                     </label>
                     <span className="text-xs text-text-muted font-rajdhani">
-                      Max: {maxQuantity} {isSizeVariant ? 'pcs' : (selectedMode === 'retail' ? 'pcs' : 'packs')}
+                      {showMaxQuantity ? (
+                        <>Max: {maxQuantity} {isSizeVariant ? 'pcs' : (selectedMode === 'retail' ? 'pcs' : 'packs')}</>
+                      ) : (
+                        <span className="text-green-600 font-semibold">∞ Unlimited</span>
+                      )}
                     </span>
                   </div>
                   <div className="flex items-center gap-3">

@@ -21,7 +21,8 @@ export default function Inventory() {
     has_size_variants: false,
     size_small_price: 0,
     size_medium_price: 0,
-    size_large_price: 0
+    size_large_price: 0,
+    track_inventory: true
   })
   const [showNewCategoryInput, setShowNewCategoryInput] = useState(false)
   const [newCategoryName, setNewCategoryName] = useState('')
@@ -108,7 +109,7 @@ export default function Inventory() {
 
       setShowModal(false)
       setEditingProduct(null)
-      setFormData({ name: '', category: '', quantity: 0, selling_price: 0, cost: 0, is_retailable: false, units_per_pack: 1, retail_price: 0, has_size_variants: false, size_small_price: 0, size_medium_price: 0, size_large_price: 0 })
+      setFormData({ name: '', category: '', quantity: 0, selling_price: 0, cost: 0, is_retailable: false, units_per_pack: 1, retail_price: 0, has_size_variants: false, size_small_price: 0, size_medium_price: 0, size_large_price: 0, track_inventory: true })
       setShowNewCategoryInput(false)
       setNewCategoryName('')
       fetchProducts()
@@ -172,7 +173,8 @@ export default function Inventory() {
       has_size_variants: product.has_size_variants || false,
       size_small_price: product.size_small_price || 0,
       size_medium_price: product.size_medium_price || 0,
-      size_large_price: product.size_large_price || 0
+      size_large_price: product.size_large_price || 0,
+      track_inventory: product.track_inventory ?? true
     })
     setShowNewCategoryInput(false)
     setNewCategoryName('')
@@ -337,7 +339,20 @@ export default function Inventory() {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-sm font-rajdhani text-green-600 font-semibold">₱{product.selling_price.toFixed(2)}</span>
+                    {product.has_size_variants ? (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-rajdhani text-text-secondary">S:</span>
+                        <span className="text-sm font-rajdhani text-green-600 font-semibold">₱{product.size_small_price?.toFixed(2)}</span>
+                        <span className="text-xs font-rajdhani text-text-secondary">|</span>
+                        <span className="text-xs font-rajdhani text-text-secondary">M:</span>
+                        <span className="text-sm font-rajdhani text-green-600 font-semibold">₱{product.size_medium_price?.toFixed(2)}</span>
+                        <span className="text-xs font-rajdhani text-text-secondary">|</span>
+                        <span className="text-xs font-rajdhani text-text-secondary">L:</span>
+                        <span className="text-sm font-rajdhani text-green-600 font-semibold">₱{product.size_large_price?.toFixed(2)}</span>
+                      </div>
+                    ) : (
+                      <span className="text-sm font-rajdhani text-green-600 font-semibold">₱{product.selling_price.toFixed(2)}</span>
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right">
                     <div className="flex items-center justify-end gap-2">
@@ -472,7 +487,13 @@ export default function Inventory() {
                         value={formData.quantity}
                         onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value) || 0 })}
                         className="input-field w-full px-4 py-3 rounded-xl"
+                        disabled={!formData.track_inventory}
                       />
+                      {!formData.track_inventory && (
+                        <p className="text-xs text-text-muted font-rajdhani mt-1">
+                          Not tracked (unlimited)
+                        </p>
+                      )}
                     </div>
                     <div>
                       <label className="block text-xs font-rajdhani font-semibold text-text-secondary uppercase mb-2">
@@ -575,7 +596,28 @@ export default function Inventory() {
                     </div>
 
                     {formData.has_size_variants && (
-                      <div className="grid grid-cols-3 gap-4">
+                      <>
+                        <div className="mb-4">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              id="track_inventory"
+                              checked={formData.track_inventory}
+                              onChange={(e) => setFormData({ ...formData, track_inventory: e.target.checked })}
+                              className="w-4 h-4 text-neon-blue border-border-light rounded focus:ring-neon-blue"
+                            />
+                            <label htmlFor="track_inventory" className="text-sm font-rajdhani font-semibold text-text-primary">
+                              Track Inventory (disable for non-inventory items like beverages)
+                            </label>
+                          </div>
+                          {!formData.track_inventory && (
+                            <p className="text-xs text-text-muted font-rajdhani mt-1">
+                              Quantity will not be deducted when selling
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-4">
                         <div>
                           <label className="block text-xs font-rajdhani font-semibold text-text-secondary uppercase mb-2">
                             Small Price (₱)
@@ -622,6 +664,7 @@ export default function Inventory() {
                           />
                         </div>
                       </div>
+                      </>
                     )}
                   </div>
 

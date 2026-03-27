@@ -16,6 +16,8 @@ export interface Product {
   size_small_price: number | null;
   size_medium_price: number | null;
   size_large_price: number | null;
+  // Inventory tracking
+  track_inventory: boolean;
 }
 
 export interface Transaction {

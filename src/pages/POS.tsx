@@ -100,7 +100,10 @@ export default function POS() {
   }
 
   function removeFromCart(productId: string) {
-    setCart(cart.filter(item => item.product.id !== productId))
+    setCart(cart.filter(item => {
+      const itemKey = item.size ? `${item.product.id}-${item.size}` : item.product.id
+      return itemKey !== productId
+    }))
   }
 
   function updateCartQuantity(productId: string, quantity: number) {
@@ -109,11 +112,12 @@ export default function POS() {
       return
     }
 
-    setCart(cart.map(item =>
-      item.product.id === productId
+    setCart(cart.map(item => {
+      const itemKey = item.size ? `${item.product.id}-${item.size}` : item.product.id
+      return itemKey === productId
         ? { ...item, quantity, subtotal: quantity * item.selling_price }
         : item
-    ))
+    }))
   }
 
   function clearCart() {
@@ -131,6 +135,27 @@ export default function POS() {
     try {
       // Process each item in cart
       for (const item of cart) {
+        // Skip inventory deduction if product doesn't track inventory
+        if (item.product.track_inventory === false) {
+          // Still record transaction but don't update quantity
+          const { error: transactionError } = await supabase
+            .from('transactions')
+            .insert([{
+              product_id: item.product.id,
+              type: 'OUT',
+              quantity: item.quantity,
+              unit_cost: item.product.cost / (item.product.units_per_pack || 1),
+              total_cost: item.quantity * (item.product.cost / (item.product.units_per_pack || 1)),
+              selling_price: item.selling_price,
+              total_revenue: item.subtotal,
+              notes: customerName ? `${customerName} - ${notes || `${TRANSACTION_TYPE} - ${transactionNumber}`}${item.size ? ` (${item.size})` : ''}` : notes || `${TRANSACTION_TYPE} - ${transactionNumber}${item.size ? ` (${item.size})` : ''}`,
+              created_at: now.toISOString()
+            }])
+
+          if (transactionError) throw transactionError
+          continue
+        }
+
         // Calculate quantity in base units (pieces)
         // If retail: quantity is already in pieces
         // If wholesale: quantity is in packs, convert to pieces
@@ -152,7 +177,7 @@ export default function POS() {
             total_cost: totalCost,
             selling_price: item.selling_price,
             total_revenue: item.subtotal,
-            notes: customerName ? `${customerName} - ${notes || `${TRANSACTION_TYPE} - ${transactionNumber}`}` : notes || `${TRANSACTION_TYPE} - ${transactionNumber}`,
+            notes: customerName ? `${customerName} - ${notes || `${TRANSACTION_TYPE} - ${transactionNumber}`}${item.size ? ` (${item.size})` : ''}` : notes || `${TRANSACTION_TYPE} - ${transactionNumber}${item.size ? ` (${item.size})` : ''}`,
             created_at: now.toISOString()
           }])
 
@@ -180,7 +205,9 @@ export default function POS() {
         type: TRANSACTION_TYPE,
         customerName: customerName || undefined,
         items: cart.map(item => ({
-          name: item.product.name,
+          name: item.size 
+            ? `${item.product.name} (${item.size.charAt(0).toUpperCase() + item.size.slice(1)})`
+            : item.product.name,
           quantity: item.quantity,
           unitPrice: item.selling_price,
           total: item.subtotal
@@ -284,9 +311,22 @@ export default function POS() {
                     </div>
                     <div className="flex items-center justify-between">
                       <div className="flex flex-col">
-                        <span className="text-sm font-bold font-orbitron text-neon-blue">
-                          ₱{product.selling_price.toFixed(2)}
-                        </span>
+                        {product.has_size_variants ? (
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-rajdhani text-text-secondary">S:</span>
+                            <span className="text-sm font-bold font-orbitron text-neon-blue">₱{product.size_small_price?.toFixed(2)}</span>
+                            <span className="text-xs text-text-muted">|</span>
+                            <span className="text-xs font-rajdhani text-text-secondary">M:</span>
+                            <span className="text-sm font-bold font-orbitron text-neon-blue">₱{product.size_medium_price?.toFixed(2)}</span>
+                            <span className="text-xs text-text-muted">|</span>
+                            <span className="text-xs font-rajdhani text-text-secondary">L:</span>
+                            <span className="text-sm font-bold font-orbitron text-neon-blue">₱{product.size_large_price?.toFixed(2)}</span>
+                          </div>
+                        ) : (
+                          <span className="text-sm font-bold font-orbitron text-neon-blue">
+                            ₱{product.selling_price.toFixed(2)}
+                          </span>
+                        )}
                       </div>
                       <span className="text-xs text-text-muted font-rajdhani">
                         Click to add
@@ -335,10 +375,21 @@ export default function POS() {
                   </div>
                 ) : (
                   cart.map((item) => (
-                    <div key={item.product.id} className="p-3 rounded-xl bg-bg-tertiary border border-border-light">
+                    <div key={item.size ? `${item.product.id}-${item.size}` : item.product.id} className="p-3 rounded-xl bg-bg-tertiary border border-border-light">
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex-1 min-w-0">
-                          <h4 className="font-rajdhani font-semibold text-text-primary truncate">{item.product.name}</h4>
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-rajdhani font-semibold text-text-primary truncate">{item.product.name}</h4>
+                            {item.size && (
+                              <span className={`px-2 py-0.5 rounded text-xs font-bold font-rajdhani uppercase ${
+                                item.size === 'small' ? 'bg-green-100 text-green-700' :
+                                item.size === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                                'bg-red-100 text-red-700'
+                              }`}>
+                                {item.size}
+                              </span>
+                            )}
+                          </div>
                         </div>
                         <button
                           onClick={() => removeFromCart(item.product.id)}
