@@ -358,11 +358,6 @@ export default function POS() {
                         <span className="text-sm font-bold font-orbitron text-neon-blue">
                           ₱{product.selling_price.toFixed(2)}
                         </span>
-                        {product.is_retailable && product.retail_price && (
-                          <span className="text-xs text-text-muted font-rajdhani">
-                            ₱{product.retail_price.toFixed(2)}/pc
-                          </span>
-                        )}
                       </div>
                       <span className="text-xs text-text-muted font-rajdhani">
                         Click to add
