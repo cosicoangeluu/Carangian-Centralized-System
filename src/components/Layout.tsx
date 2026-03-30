@@ -61,7 +61,7 @@ export default function Layout({ children, sidebarOpen, setSidebarOpen }: Layout
               {sidebarOpen && (
                 <div className="animate-fade-in overflow-hidden">
                   <h1 className="text-lg font-bold font-orbitron gradient-text whitespace-nowrap">CARANGIAN</h1>
-                  <p className="text-xs text-text-muted font-medium whitespace-nowrap">INVENTORY SYSTEM</p>
+                  <p className="text-xs text-text-muted font-medium whitespace-nowrap">Centralized Web System</p>
                 </div>
               )}
             </div>

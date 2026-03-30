@@ -60,13 +60,6 @@ export default function ProductQuantityModal({
     return product.size_large_price || 0
   }
 
-  const getSizeLabel = (mode: string) => {
-    if (mode === 'small') return 'Small'
-    if (mode === 'medium') return 'Medium'
-    if (mode === 'large') return 'Large'
-    return mode
-  }
-
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="flex min-h-screen items-center justify-center p-4">
