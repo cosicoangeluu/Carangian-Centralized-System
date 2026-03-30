@@ -12,6 +12,7 @@ import {
 } from '@heroicons/react/24/outline'
 import Receipt from '../components/Receipt'
 import { generateTransactionNumber, formatReceiptDate, downloadReceiptAsPDF, downloadReceiptAsImage } from '../utils/receiptUtils'
+import { logStockHistory } from '../utils/stockHistory'
 import POSLayout from '../components/POSLayout'
 import ProductQuantityModal from '../components/ProductQuantityModal'
 
@@ -195,6 +196,17 @@ export default function POS() {
           .eq('id', item.product.id)
 
         if (updateError) throw updateError
+
+        // Log stock history for inventory removal
+        await logStockHistory({
+          productId: item.product.id,
+          productName: item.product.name,
+          action: 'REMOVE',
+          quantityChange: -quantityInBaseUnits,
+          quantityBefore: item.product.quantity,
+          quantityAfter: newQuantity,
+          notes: `Sale - ${transactionNumber}${item.size ? ` (${item.size})` : ''}`
+        })
       }
 
       // Generate receipt data

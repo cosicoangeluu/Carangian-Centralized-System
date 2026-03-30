@@ -68,3 +68,17 @@ export interface ReceiptData {
   notes?: string;
   cashier?: string;
 }
+
+export interface StockHistory {
+  id: string;
+  product_id: string;
+  product_name: string;
+  action: 'ADD' | 'REMOVE';
+  quantity_change: number;
+  quantity_before: number;
+  quantity_after: number;
+  notes?: string;
+  transaction_id?: string;
+  created_at: string;
+  created_by?: string;
+}

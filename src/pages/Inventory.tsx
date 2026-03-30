@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { Product } from '../types'
-import { PlusIcon, PencilIcon, TrashIcon, CubeIcon, TagIcon, FolderIcon } from '@heroicons/react/24/outline'
+import { PlusIcon, PencilIcon, TrashIcon, CubeIcon, TagIcon, FolderIcon, CalendarIcon, ClockIcon } from '@heroicons/react/24/outline'
 import ModalNotification from '../components/ModalNotification'
+import StockHistoryCalendar from '../components/StockHistoryCalendar'
+import AddStocksModal from '../components/AddStocksModal'
+import { logStockHistory } from '../utils/stockHistory'
 
 export default function Inventory() {
   const [products, setProducts] = useState<Product[]>([])
@@ -30,6 +33,13 @@ export default function Inventory() {
   // Category filter state
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
   const [categories, setCategories] = useState<string[]>([])
+
+  // Sub-tab state
+  const [activeTab, setActiveTab] = useState<'products' | 'history'>('products')
+  const [selectedProductForHistory, setSelectedProductForHistory] = useState<Product | null>(null)
+
+  // Add Stocks modal state
+  const [showAddStocksModal, setShowAddStocksModal] = useState(false)
   
   // Modal notification state
   const [showNotification, setShowNotification] = useState(false)
@@ -80,17 +90,36 @@ export default function Inventory() {
     }
 
     try {
+      const now = new Date()
       if (editingProduct) {
+        // Check if quantity changed
+        const quantityChanged = formData.quantity !== editingProduct.quantity
+        
         const { error } = await supabase
           .from('products')
           .update({
             ...formData,
             category: finalCategory,
-            updated_at: new Date().toISOString()
+            updated_at: now.toISOString()
           })
           .eq('id', editingProduct.id)
 
         if (error) throw error
+
+        // Log stock history if quantity changed
+        if (quantityChanged && editingProduct.track_inventory !== false) {
+          const quantityDiff = formData.quantity - editingProduct.quantity
+          const action = quantityDiff > 0 ? 'ADD' : 'REMOVE'
+          await logStockHistory({
+            productId: editingProduct.id,
+            productName: editingProduct.name,
+            action,
+            quantityChange: quantityDiff,
+            quantityBefore: editingProduct.quantity,
+            quantityAfter: formData.quantity,
+            notes: 'Manual adjustment in Inventory'
+          })
+        }
 
         // Show success notification for edit
         setNotificationType('success')
@@ -98,16 +127,33 @@ export default function Inventory() {
         setNotificationMessage(`"${editingProduct.name}" has been successfully updated.`)
         setShowNotification(true)
       } else {
-        const { error } = await supabase
+        const insertResult = await supabase
           .from('products')
           .insert([{
             ...formData,
             category: finalCategory,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
+            created_at: now.toISOString(),
+            updated_at: now.toISOString()
           }])
+          .select()
+          .single()
 
-        if (error) throw error
+        if (insertResult.error) throw insertResult.error
+
+        const insertedProduct = insertResult.data
+
+        // Log initial stock addition if quantity > 0
+        if (formData.quantity > 0 && formData.track_inventory !== false && insertedProduct) {
+          await logStockHistory({
+            productId: insertedProduct.id,
+            productName: insertedProduct.name,
+            action: 'ADD',
+            quantityChange: formData.quantity,
+            quantityBefore: 0,
+            quantityAfter: formData.quantity,
+            notes: 'Initial stock entry'
+          })
+        }
 
         // Show success notification for add
         setNotificationType('success')
@@ -222,79 +268,115 @@ export default function Inventory() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold font-orbitron text-text-primary flex items-center gap-3">
-            <span className="gradient-text">INVENTORY</span>
-          </h1>
-          <p className="text-text-secondary mt-1 font-rajdhani text-base">Master product catalog & stock management</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          {/* Category Filter */}
-          <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white border border-border-light shadow-soft">
-            <FolderIcon className="h-5 w-5 text-neon-yellow" />
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="bg-bg-secondary border border-border-light rounded px-2 py-1 text-sm text-text-primary font-rajdhani focus:outline-none focus:ring-2 focus:ring-neon-blue"
-            >
-              <option value="all">All Categories</option>
-              {categories.map((category) => (
-                <option key={category} value={category}>
-                  {category}
-                </option>
-              ))}
-            </select>
+      <div className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold font-orbitron text-text-primary flex items-center gap-3">
+              <span className="gradient-text">INVENTORY</span>
+            </h1>
+            <p className="text-text-secondary mt-1 font-rajdhani text-base">Master product catalog & stock management</p>
           </div>
+          {activeTab === 'products' && (
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Category Filter */}
+              <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white border border-border-light shadow-soft">
+                <FolderIcon className="h-5 w-5 text-neon-yellow" />
+                <select
+                  value={selectedCategory}
+                  onChange={(e) => setSelectedCategory(e.target.value)}
+                  className="bg-bg-secondary border border-border-light rounded px-2 py-1 text-sm text-text-primary font-rajdhani focus:outline-none focus:ring-2 focus:ring-neon-blue"
+                >
+                  <option value="all">All Categories</option>
+                  {categories.map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <button
+                onClick={() => setShowModal(true)}
+                className="btn-primary px-5 py-2.5 rounded-xl flex items-center gap-2 font-rajdhani font-semibold"
+              >
+                <PlusIcon className="h-5 w-5" />
+                <span>Add Product</span>
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Sub-tabs */}
+        <div className="flex items-center gap-2 border-b border-border-light">
           <button
-            onClick={() => setShowModal(true)}
-            className="btn-primary px-5 py-2.5 rounded-xl flex items-center gap-2 font-rajdhani font-semibold"
+            onClick={() => {
+              setActiveTab('products')
+              setSelectedProductForHistory(null)
+            }}
+            className={`flex items-center gap-2 px-5 py-3 font-rajdhani font-semibold transition-all border-b-2 ${
+              activeTab === 'products'
+                ? 'border-neon-blue text-neon-blue'
+                : 'border-transparent text-text-muted hover:text-text-secondary'
+            }`}
           >
-            <PlusIcon className="h-5 w-5" />
-            <span>Add Product</span>
+            <CubeIcon className="h-5 w-5" />
+            Products
+          </button>
+          <button
+            onClick={() => setActiveTab('history')}
+            className={`flex items-center gap-2 px-5 py-3 font-rajdhani font-semibold transition-all border-b-2 ${
+              activeTab === 'history'
+                ? 'border-neon-blue text-neon-blue'
+                : 'border-transparent text-text-muted hover:text-text-secondary'
+            }`}
+          >
+            <CalendarIcon className="h-5 w-5" />
+            Stock History
           </button>
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="rounded-xl bg-white p-5 border border-border-light shadow-soft card-hover">
-          <div className="flex items-center gap-3">
-            <div className="stat-gradient-blue p-3 rounded-xl shadow-lg">
-              <CubeIcon className="h-5 w-5 text-white" />
+      {/* Products Tab Content */}
+      {activeTab === 'products' && (
+        <>
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="rounded-xl bg-white p-5 border border-border-light shadow-soft card-hover">
+              <div className="flex items-center gap-3">
+                <div className="stat-gradient-blue p-3 rounded-xl shadow-lg">
+                  <CubeIcon className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <p className="text-xs text-text-muted font-rajdhani uppercase">Total Products</p>
+                  <p className="text-2xl font-bold font-orbitron text-text-primary">{products.length}</p>
+                </div>
+              </div>
             </div>
-            <div>
-              <p className="text-xs text-text-muted font-rajdhani uppercase">Total Products</p>
-              <p className="text-2xl font-bold font-orbitron text-text-primary">{products.length}</p>
+            <div className="rounded-xl bg-white p-5 border border-border-light shadow-soft card-hover">
+              <div className="flex items-center gap-3">
+                <div className="stat-gradient-yellow p-3 rounded-xl shadow-lg">
+                  <TagIcon className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <p className="text-xs text-text-muted font-rajdhani uppercase">Inventory Value</p>
+                  <p className="text-2xl font-bold font-orbitron text-text-primary">₱{totalValue.toFixed(2)}</p>
+                </div>
+              </div>
+            </div>
+            <div className="rounded-xl bg-white p-5 border border-border-light shadow-soft card-hover">
+              <div className="flex items-center gap-3">
+                <div className="stat-gradient-orange p-3 rounded-xl shadow-lg">
+                  <FolderIcon className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <p className="text-xs text-text-muted font-rajdhani uppercase">Low Stock Alert</p>
+                  <p className="text-2xl font-bold font-orbitron text-text-primary">{lowStockProducts}</p>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-        <div className="rounded-xl bg-white p-5 border border-border-light shadow-soft card-hover">
-          <div className="flex items-center gap-3">
-            <div className="stat-gradient-yellow p-3 rounded-xl shadow-lg">
-              <TagIcon className="h-5 w-5 text-white" />
-            </div>
-            <div>
-              <p className="text-xs text-text-muted font-rajdhani uppercase">Inventory Value</p>
-              <p className="text-2xl font-bold font-orbitron text-text-primary">₱{totalValue.toFixed(2)}</p>
-            </div>
-          </div>
-        </div>
-        <div className="rounded-xl bg-white p-5 border border-border-light shadow-soft card-hover">
-          <div className="flex items-center gap-3">
-            <div className="stat-gradient-orange p-3 rounded-xl shadow-lg">
-              <FolderIcon className="h-5 w-5 text-white" />
-            </div>
-            <div>
-              <p className="text-xs text-text-muted font-rajdhani uppercase">Low Stock Alert</p>
-              <p className="text-2xl font-bold font-orbitron text-text-primary">{lowStockProducts}</p>
-            </div>
-          </div>
-        </div>
-      </div>
 
-      {/* Table */}
-      <div className="rounded-2xl bg-white border border-border-light shadow-medium overflow-hidden">
+          {/* Table */}
+          <div className="rounded-2xl bg-white border border-border-light shadow-medium overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full">
             <thead>
@@ -413,6 +495,69 @@ export default function Inventory() {
           </table>
         </div>
       </div>
+        </>
+      )}
+
+      {/* History Tab Content */}
+      {activeTab === 'history' && (
+        <div className="space-y-6">
+          {/* Product Filter for History */}
+          <div className="rounded-xl bg-white p-5 border border-border-light shadow-soft">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+              <div className="flex items-center gap-3">
+                <div className="stat-gradient-blue p-2.5 rounded-xl shadow-md">
+                  <ClockIcon className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold font-orbitron text-text-primary">Filter by Product</h3>
+                  <p className="text-sm text-text-muted font-rajdhani">View stock history for a specific product or all products</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowAddStocksModal(true)}
+                className="btn-secondary px-5 py-2.5 rounded-xl flex items-center gap-2 font-rajdhani font-semibold border-2 border-neon-blue text-neon-blue hover:bg-neon-blue hover:text-white whitespace-nowrap"
+              >
+                <PlusIcon className="h-5 w-5" />
+                <span>Add Stocks</span>
+              </button>
+            </div>
+            <div className="flex items-center gap-3">
+              <select
+                value={selectedProductForHistory?.id || 'all'}
+                onChange={(e) => {
+                  if (e.target.value === 'all') {
+                    setSelectedProductForHistory(null)
+                  } else {
+                    const product = products.find(p => p.id === e.target.value)
+                    if (product) {
+                      setSelectedProductForHistory(product)
+                    }
+                  }
+                }}
+                className="input-field w-full max-w-md px-4 py-3 rounded-xl"
+              >
+                <option value="all">All Products</option>
+                {products.map((product) => (
+                  <option key={product.id} value={product.id}>
+                    {product.name} ({product.category})
+                  </option>
+                ))}
+              </select>
+              {selectedProductForHistory && (
+                <button
+                  onClick={() => setSelectedProductForHistory(null)}
+                  className="btn-secondary px-4 py-3 rounded-xl font-rajdhani font-semibold"
+                >
+                  Clear Filter
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Stock History Calendar */}
+          <StockHistoryCalendar selectedProduct={selectedProductForHistory} />
+        </div>
+      )}
 
       {/* Modal */}
       {showModal && (
@@ -719,6 +864,20 @@ export default function Inventory() {
         message={notificationMessage}
         onConfirm={confirmDelete}
         onClose={() => setShowNotification(false)}
+      />
+
+      {/* Add Stocks Modal */}
+      <AddStocksModal
+        isOpen={showAddStocksModal}
+        onClose={() => setShowAddStocksModal(false)}
+        onStockAdded={() => {
+          fetchProducts()
+          setShowAddStocksModal(false)
+          setNotificationType('success')
+          setNotificationTitle('Stock Added')
+          setNotificationMessage('Stock has been successfully added to selected products.')
+          setShowNotification(true)
+        }}
       />
     </div>
   )

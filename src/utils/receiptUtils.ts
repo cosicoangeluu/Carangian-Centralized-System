@@ -222,39 +222,80 @@ export function printReceipt(receiptId: string): void {
 }
 
 /**
- * Downloads receipt as PDF
+ * Downloads receipt as PDF with proper formatting
+ * Uses 80mm thermal receipt paper ratio
  */
 export async function downloadReceiptAsPDF(receiptId: string, transactionNumber: string): Promise<void> {
   const printContent = document.getElementById(receiptId);
   if (!printContent) return;
 
   try {
-    const canvas = await html2canvas(printContent, {
+    // Wait for fonts to load before capturing
+    await document.fonts.ready;
+
+    // Create a temporary container that mirrors the receipt structure
+    const container = document.createElement('div');
+    container.style.position = 'fixed';
+    container.style.top = '-9999px';
+    container.style.left = '0';
+    container.style.width = '380px';
+    container.style.backgroundColor = '#ffffff';
+    container.style.fontFamily = "'Rajdhani', sans-serif";
+    container.style.fontSize = '14px';
+    container.style.lineHeight = '1.5';
+    container.style.color = '#1a1a1a';
+    
+    // Clone the print content with all styles
+    const clonedContent = printContent.cloneNode(true) as HTMLElement;
+    
+    // Remove any action buttons from cloned content
+    const actionButtons = clonedContent.querySelectorAll('button');
+    actionButtons.forEach(btn => btn.remove());
+    
+    container.appendChild(clonedContent);
+    document.body.appendChild(container);
+
+    // Wait for styles and fonts to fully load
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    const canvas = await html2canvas(container, {
       scale: 3,
       backgroundColor: '#ffffff',
       logging: false,
       useCORS: true,
       allowTaint: true,
       imageTimeout: 0,
-      removeContainer: true,
+      windowWidth: 380,
+      windowHeight: container.scrollHeight,
+      scrollX: 0,
+      scrollY: 0,
+      x: 0,
+      y: 0,
+      width: 380,
+      height: container.scrollHeight,
     });
 
+    // Clean up temporary container
+    document.body.removeChild(container);
+
     const imgData = canvas.toDataURL('image/png', 1.0);
+
+    // 80mm thermal receipt paper dimensions
+    const receiptWidthMm = 80;
+    const imgWidth = canvas.width;
+    const imgHeight = canvas.height;
+
+    // Calculate height based on aspect ratio
+    const aspectRatio = imgHeight / imgWidth;
+    const receiptHeightMm = receiptWidthMm * aspectRatio;
+
     const pdf = new jsPDF({
       orientation: 'portrait',
       unit: 'mm',
-      format: 'a4',
+      format: [receiptWidthMm, receiptHeightMm],
     });
 
-    const pdfWidth = pdf.internal.pageSize.getWidth();
-    const pdfHeight = pdf.internal.pageSize.getHeight();
-    const imgWidth = canvas.width;
-    const imgHeight = canvas.height;
-    const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
-    const imgX = (pdfWidth - imgWidth * ratio) / 2;
-    const imgY = 10;
-
-    pdf.addImage(imgData, 'PNG', imgX, imgY, imgWidth * ratio, imgHeight * ratio);
+    pdf.addImage(imgData, 'PNG', 0, 0, receiptWidthMm, receiptHeightMm);
     pdf.save(`Receipt-${transactionNumber}.pdf`);
   } catch (error) {
     console.error('Error generating PDF:', error);
@@ -270,14 +311,19 @@ export async function downloadReceiptAsImage(receiptId: string, transactionNumbe
   if (!printContent) return;
 
   try {
+    // Wait for fonts to load before capturing
+    await document.fonts.ready;
+
     const canvas = await html2canvas(printContent, {
-      scale: 3,
+      scale: 2,
       backgroundColor: '#ffffff',
       logging: false,
       useCORS: true,
       allowTaint: true,
       imageTimeout: 0,
       removeContainer: true,
+      scrollX: 0,
+      scrollY: 0,
     });
 
     const imgData = canvas.toDataURL('image/png', 1.0);
