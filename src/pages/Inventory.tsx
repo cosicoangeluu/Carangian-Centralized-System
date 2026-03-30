@@ -70,6 +70,15 @@ export default function Inventory() {
 
     const finalCategory = showNewCategoryInput ? newCategoryName : formData.category
 
+    // Validation: Ensure category is provided
+    if (!finalCategory || finalCategory.trim() === '') {
+      setNotificationType('error')
+      setNotificationTitle('Validation Error')
+      setNotificationMessage('Please select or enter a category for the product.')
+      setShowNotification(true)
+      return
+    }
+
     try {
       if (editingProduct) {
         const { error } = await supabase
@@ -115,6 +124,13 @@ export default function Inventory() {
       fetchProducts()
     } catch (error) {
       console.error('Error saving product:', error)
+      // Log detailed error information for debugging
+      if (error && typeof error === 'object') {
+        if ('message' in error) console.error('Error message:', error.message)
+        if ('code' in error) console.error('Error code:', error.code)
+        if ('details' in error) console.error('Error details:', error.details)
+        if ('hint' in error) console.error('Error hint:', error.hint)
+      }
       setNotificationType('error')
       setNotificationTitle('Error')
       setNotificationMessage('Failed to save product. Please try again.')
@@ -325,18 +341,22 @@ export default function Inventory() {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center gap-2">
-                      <span className={`text-sm font-bold font-rajdhani ${
-                        product.quantity < 10 ? 'text-red-500' : 'text-text-primary'
-                      }`}>
-                        {product.quantity}
-                      </span>
-                      {product.quantity < 10 && (
-                        <span className="px-2 py-0.5 rounded-full bg-red-50 border border-red-200 text-xs text-red-600 font-semibold">
-                          LOW
+                    {product.track_inventory !== false ? (
+                      <div className="flex items-center gap-2">
+                        <span className={`text-sm font-bold font-rajdhani ${
+                          product.quantity < 10 ? 'text-red-500' : 'text-text-primary'
+                        }`}>
+                          {product.quantity}
                         </span>
-                      )}
-                    </div>
+                        {product.quantity < 10 && (
+                          <span className="px-2 py-0.5 rounded-full bg-red-50 border border-red-200 text-xs text-red-600 font-semibold">
+                            LOW
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-sm text-text-muted font-rajdhani">Not tracked</span>
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     {product.has_size_variants ? (
@@ -437,7 +457,7 @@ export default function Inventory() {
 
                   <div>
                     <label className="block text-xs font-rajdhani font-semibold text-text-secondary uppercase mb-2">
-                      Category
+                      Category <span className="text-red-500">*</span>
                     </label>
                     <div className="space-y-2">
                       <select
@@ -452,6 +472,7 @@ export default function Inventory() {
                           }
                         }}
                         className="input-field w-full px-4 py-3 rounded-xl"
+                        required
                       >
                         <option value="">Select a category</option>
                         {categories.map((category) => (

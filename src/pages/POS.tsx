@@ -296,18 +296,10 @@ export default function POS() {
                     onClick={() => handleProductClick(product)}
                     className="text-left p-4 rounded-xl border-2 border-border-light hover:border-neon-blue hover:shadow-medium transition-all bg-bg-tertiary group"
                   >
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex-1">
-                        <h3 className="font-rajdhani font-bold text-text-primary group-hover:text-neon-blue transition-colors">
-                          {product.name}
-                        </h3>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-xs text-text-muted font-rajdhani uppercase">Stock</p>
-                        <p className={`font-bold font-rajdhani ${product.quantity > 0 ? 'text-green-600' : 'text-red-500'}`}>
-                          {product.quantity}
-                        </p>
-                      </div>
+                    <div className="mb-2">
+                      <h3 className="font-rajdhani font-bold text-text-primary group-hover:text-neon-blue transition-colors">
+                        {product.name}
+                      </h3>
                     </div>
                     <div className="flex items-center justify-between">
                       <div className="flex flex-col">
